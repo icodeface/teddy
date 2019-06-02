@@ -70,6 +70,31 @@ func (sc *Scanner) skipWhiteSpace(whitespace int64) int {
 	return ch
 }
 
+func (sc *Scanner) skipComments(ch int) error {
+	if ch == '/' {
+		//  // 单行注释
+		for {
+			if ch == '\n' || ch == '\r' || ch < 0 {
+				break
+			}
+			ch = sc.Next()
+		}
+	} else {
+		// /* */ 多行注释
+		for {
+			if ch < 0 {
+				break
+			} else if ch == '*' && sc.Peek() == '/' {
+				sc.Next()
+				break
+			}
+			ch = sc.Next()
+		}
+	}
+
+	return nil
+}
+
 func (sc *Scanner) readNext() int {
 	ch, err := sc.reader.ReadByte()
 	if err == io.EOF {
@@ -257,7 +282,6 @@ redo:
 	switch {
 	case isIdent(ch, 0):
 		// 标识符
-		fmt.Println("TIdent", TIdent)
 		tok.Type = TIdent
 		// 循环读后续
 		err = sc.scanIdent(ch, buf)
@@ -320,14 +344,13 @@ redo:
 				tok.Str = string(ch)
 			}
 		case '/':
-			if sc.Peek() == '/' {
-				// 注释, 一直读到行尾
-				for {
-					if ch == '\n' || ch == '\r' || ch < 0 {
-						break
-					}
-					ch = sc.Next()
+			if sc.Peek() == '/' || sc.Peek() == '*' {
+				// 跳过注释
+				err = sc.skipComments(sc.Next())
+				if err != nil {
+					goto finally
 				}
+				// 继续读注释后面的内容
 				goto redo
 			} else {
 				tok.Type = ch
@@ -358,4 +381,19 @@ type Lexer struct {
 
 func NewLexer(reader io.Reader, name string) *Lexer {
 	return &Lexer{NewScanner(reader, name), nil, false, ast.Token{Str: ""}, 0}
+}
+
+// 词法分析，每次读一个token
+func (lx *Lexer) Lex() int {
+	lx.PrevTokenType = lx.Token.Type
+	tok, err := lx.scanner.Scan(lx)
+	if err != nil {
+		panic(err)
+	}
+	if tok.Type < 0 {
+		return 0
+	}
+	lx.Token = tok
+	fmt.Println("got token", tok.Str, ",position:", tok.Pos)
+	return tok.Type
 }

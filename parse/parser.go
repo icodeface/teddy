@@ -1,17 +1,14 @@
 package parse
 
 import (
-	"fmt"
 	"github.com/icodeface/teddy/ast"
 	"io"
 )
 
-func parse(l *Lexer) int {
-	tok, err := l.scanner.Scan(l)
-	if err != nil {
-		fmt.Println("scan error", err)
+func parse(lx *Lexer) int {
+	for lx.Lex() > 0 {
+
 	}
-	fmt.Println("got token", tok.Str, ",position:", tok.Pos)
 	return 0
 }
 
